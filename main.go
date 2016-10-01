@@ -64,6 +64,10 @@ func obfuscate(outGopath bool, encKey, pkgName, outPath string) bool {
 		fmt.Fprintln(os.Stderr, "Failed to obfuscate package names:", err)
 		return false
 	}
+	if err := ObfuscateStrings(newGopath); err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to obfuscate strings:", err)
+		return false
+	}
 	if err := ObfuscateSymbols(newGopath, enc); err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to obfuscate symbols:", err)
 		return false
