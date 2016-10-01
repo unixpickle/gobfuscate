@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
-	"path/filepath"
 )
 
 func main() {
@@ -42,8 +41,10 @@ func obfuscate(outGopath bool, encKey, pkgName, outPath string) bool {
 	var newGopath string
 	if outGopath {
 		newGopath = outPath
-		os.Mkdir(newGopath, 0755)
-		os.Mkdir(filepath.Join(newGopath, "src"), 0755)
+		if err := os.Mkdir(newGopath, 0755); err != nil {
+			fmt.Fprintln(os.Stderr, "Failed to create destination:", err)
+			return false
+		}
 	} else {
 		var err error
 		newGopath, err = ioutil.TempDir("", "")
