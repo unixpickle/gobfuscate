@@ -1,10 +1,10 @@
 package main
 
 import (
+	"crypto/rand"
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"os"
 )
 
