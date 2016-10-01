@@ -34,6 +34,12 @@ func (e *Encrypter) Encrypt(token string) string {
 	enc.XORKeyStream(resBytes, sourceBytes)
 
 	hexStr := strings.ToLower(hex.EncodeToString(resBytes))
+	for i, x := range hexStr {
+		if x >= '0' && x <= '9' {
+			x = 'g' + (x - '0')
+			hexStr = hexStr[:i] + string(x) + hexStr[i+1:]
+		}
+	}
 	if strings.ToUpper(token[:1]) == token[:1] {
 		hexStr = strings.ToUpper(hexStr[:1]) + hexStr[1:]
 	}
