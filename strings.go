@@ -20,7 +20,7 @@ func ObfuscateStrings(gopath string) error {
 		if err != nil {
 			return err
 		}
-		if filepath.Ext(path) != ".go" || info.IsDir() {
+		if filepath.Ext(path) != GoExtension || info.IsDir() {
 			return nil
 		}
 		set := token.NewFileSet()
