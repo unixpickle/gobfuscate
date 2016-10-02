@@ -2,7 +2,7 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/gob"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -78,8 +78,8 @@ func (s *stringObfuscator) Obfuscate() ([]byte, error) {
 
 	source := `
         package main
-        import "fmt"
-        import "encoding/json"
+        import "encoding/gob"
+		import "os"
         func main() {
             list := []string{}
     `
@@ -87,8 +87,7 @@ func (s *stringObfuscator) Obfuscate() ([]byte, error) {
 		source += "list = append(list, " + n.Value + ")\n"
 	}
 	source += `
-            res, _ := json.Marshal(list)
-            fmt.Println(string(res))
+			gob.NewEncoder(os.Stdout).Encode(list)
         }
     `
 	tempDir, err := ioutil.TempDir("", "string_obfuscator")
@@ -113,7 +112,8 @@ func (s *stringObfuscator) Obfuscate() ([]byte, error) {
 	}
 
 	var parsed []string
-	if err := json.Unmarshal(output.Bytes(), &parsed); err != nil {
+	dec := gob.NewDecoder(&output)
+	if err := dec.Decode(&parsed); err != nil {
 		return nil, err
 	}
 
