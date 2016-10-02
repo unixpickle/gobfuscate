@@ -1,12 +1,12 @@
 package main
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/sha256"
 	"encoding/hex"
 	"strings"
 )
+
+const hashedSymbolSize = 10
 
 // An Encrypter encrypts textual tokens.
 type Encrypter struct {
@@ -16,24 +16,9 @@ type Encrypter struct {
 // Encrypt encrypts the token.
 // The case of the first letter of the token is preserved.
 func (e *Encrypter) Encrypt(token string) string {
-	hashArray := sha256.Sum256([]byte(e.Key))
-	key := hashArray[:]
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		panic(err)
-	}
-	iv := make([]byte, block.BlockSize())
-	for i := range iv {
-		iv[i] = byte(i)
-	}
-	enc := cipher.NewCFBEncrypter(block, iv)
+	hashArray := sha256.Sum256([]byte(e.Key + token))
 
-	sourceBytes := []byte(token)
-	resBytes := make([]byte, len(sourceBytes))
-
-	enc.XORKeyStream(resBytes, sourceBytes)
-
-	hexStr := strings.ToLower(hex.EncodeToString(resBytes))
+	hexStr := strings.ToLower(hex.EncodeToString(hashArray[:hashedSymbolSize]))
 	for i, x := range hexStr {
 		if x >= '0' && x <= '9' {
 			x = 'g' + (x - '0')
