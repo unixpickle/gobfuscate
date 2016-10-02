@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 )
 
 func ObfuscateStrings(gopath string) error {
@@ -34,11 +35,11 @@ func ObfuscateStrings(gopath string) error {
 			return err
 		}
 
-		obfuscator := &stringObfuscator{}
+		obfuscator := &stringObfuscator{Contents: contents}
 		for _, decl := range file.Decls {
 			ast.Walk(obfuscator, decl)
 		}
-		newCode, err := obfuscator.Obfuscate(contents)
+		newCode, err := obfuscator.Obfuscate()
 		if err != nil {
 			return err
 		}
@@ -47,7 +48,8 @@ func ObfuscateStrings(gopath string) error {
 }
 
 type stringObfuscator struct {
-	Nodes []*ast.BasicLit
+	Contents []byte
+	Nodes    []*ast.BasicLit
 }
 
 func (s *stringObfuscator) Visit(n ast.Node) ast.Visitor {
@@ -56,13 +58,21 @@ func (s *stringObfuscator) Visit(n ast.Node) ast.Visitor {
 			s.Nodes = append(s.Nodes, lit)
 		}
 		return nil
+	} else if decl, ok := n.(*ast.GenDecl); ok {
+		keywords := strings.Fields(string(s.Contents[int(decl.Pos())-1:]))
+		if len(keywords) == 0 {
+			return nil
+		}
+		if keywords[0] == "const" {
+			return nil
+		}
 	} else if _, ok := n.(*ast.ImportSpec); ok {
 		return nil
 	}
 	return s
 }
 
-func (s *stringObfuscator) Obfuscate(data []byte) ([]byte, error) {
+func (s *stringObfuscator) Obfuscate() ([]byte, error) {
 	sort.Sort(s)
 
 	source := `
@@ -106,6 +116,7 @@ func (s *stringObfuscator) Obfuscate(data []byte) ([]byte, error) {
 
 	var lastIndex int
 	var result bytes.Buffer
+	data := s.Contents
 	for i, node := range s.Nodes {
 		strVal := parsed[i]
 		startIdx := node.Pos() - 1
