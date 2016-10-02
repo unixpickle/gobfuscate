@@ -14,7 +14,6 @@ import (
 	"runtime"
 	"sort"
 	"strconv"
-	"strings"
 )
 
 func ObfuscateStrings(gopath string) error {
@@ -60,15 +59,9 @@ func (s *stringObfuscator) Visit(n ast.Node) ast.Visitor {
 		}
 		return nil
 	} else if decl, ok := n.(*ast.GenDecl); ok {
-		keywords := strings.Fields(string(s.Contents[int(decl.Pos())-1:]))
-		if len(keywords) == 0 {
+		if decl.Tok == token.CONST || decl.Tok == token.IMPORT {
 			return nil
 		}
-		if keywords[0] == "const" {
-			return nil
-		}
-	} else if _, ok := n.(*ast.ImportSpec); ok {
-		return nil
 	}
 	return s
 }
