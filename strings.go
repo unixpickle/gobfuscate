@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -146,23 +147,17 @@ func (s *stringObfuscator) Less(i, j int) bool {
 func obfuscatedStringCode(str string) []byte {
 	var res bytes.Buffer
 	res.WriteString("(func() string {\n")
-	res.WriteString("mask := []byte{")
+	res.WriteString("mask := []byte(\"")
 	mask := make([]byte, len(str))
 	for i := range mask {
 		mask[i] = byte(rand.Intn(256))
-		if i > 0 {
-			res.WriteRune(',')
-		}
-		res.WriteString(strconv.Itoa(int(mask[i])))
+		res.WriteString(fmt.Sprintf("\\x%02x", mask[i]))
 	}
-	res.WriteString("}\nmaskedStr := []byte{")
+	res.WriteString("\")\nmaskedStr := []byte(\"")
 	for i, x := range []byte(str) {
-		if i > 0 {
-			res.WriteRune(',')
-		}
-		res.WriteString(strconv.Itoa(int(x ^ mask[i])))
+		res.WriteString(fmt.Sprintf("\\x%02x", x^mask[i]))
 	}
-	res.WriteString("}\nres := make([]byte, ")
+	res.WriteString("\")\nres := make([]byte, ")
 	res.WriteString(strconv.Itoa(len(mask)))
 	res.WriteString(`)
         for i, m := range mask {
