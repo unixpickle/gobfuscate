@@ -4,8 +4,11 @@ import (
 	"crypto/rand"
 	"flag"
 	"fmt"
+	"go/build"
 	"io/ioutil"
 	"os"
+	"os/exec"
+	"strings"
 )
 
 func main() {
@@ -73,7 +76,27 @@ func obfuscate(outGopath bool, encKey, pkgName, outPath string) bool {
 		return false
 	}
 
-	// TODO: compile source here if requested.
+	if !outGopath {
+		ctx := build.Default
+		newPkg := encryptComponents(pkgName, enc)
+		cmd := exec.Command("go", "build", "-o", outPath, newPkg)
+		cmd.Env = []string{"GOROOT=" + ctx.GOROOT, "GOARCH=" + ctx.GOARCH,
+			"GOOS=" + ctx.GOOS, "GOPATH=" + newGopath}
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			fmt.Fprintln(os.Stderr, "Failed to compile:", err)
+			return false
+		}
+	}
 
 	return true
+}
+
+func encryptComponents(pkgName string, enc *Encrypter) string {
+	comps := strings.Split(pkgName, "/")
+	for i, comp := range comps {
+		comps[i] = enc.Encrypt(comp)
+	}
+	return strings.Join(comps, "/")
 }

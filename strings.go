@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -103,6 +104,8 @@ func (s *stringObfuscator) Obfuscate() ([]byte, error) {
 	}
 
 	cmd := exec.Command("go", "run", tempFile)
+	cmd.Env = []string{"GOOS=" + runtime.GOOS, "GOARCH=" + runtime.GOARCH,
+		"GOROOT=" + os.Getenv("GOROOT")}
 	var output bytes.Buffer
 	cmd.Stdout = &output
 	if err := cmd.Run(); err != nil {
