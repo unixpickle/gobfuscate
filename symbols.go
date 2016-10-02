@@ -6,6 +6,7 @@ import (
 	"go/build"
 	"go/parser"
 	"go/token"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -51,16 +52,19 @@ func runRenames(gopath string, renames []symbolRenameReq) error {
 
 func topLevelRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
 	srcDir := filepath.Join(gopath, "src")
-	var res []symbolRenameReq
+	res := map[symbolRenameReq]int{}
 	addRes := func(pkgPath, name string) {
 		prefix := "\"" + pkgPath + "\"."
 		oldName := prefix + name
 		newName := enc.Encrypt(name)
-		res = append(res, symbolRenameReq{oldName, newName})
+		res[symbolRenameReq{oldName, newName}]++
 	}
 	err := filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
+		}
+		if info.IsDir() && containsAssembly(path) {
+			return filepath.SkipDir
 		}
 		if filepath.Ext(path) != GoExtension {
 			return nil
@@ -95,7 +99,7 @@ func topLevelRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
 		}
 		return nil
 	})
-	return res, err
+	return singleRenames(res), err
 }
 
 func methodRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
@@ -105,10 +109,13 @@ func methodRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
 	}
 
 	srcDir := filepath.Join(gopath, "src")
-	var res []symbolRenameReq
+	res := map[symbolRenameReq]int{}
 	err = filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
+		}
+		if info.IsDir() && containsAssembly(path) {
+			return filepath.SkipDir
 		}
 		if filepath.Ext(path) != GoExtension {
 			return nil
@@ -135,12 +142,12 @@ func methodRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
 				}
 				oldName := prefix + s.String() + "." + d.Name.Name
 				newName := enc.Encrypt(d.Name.Name)
-				res = append(res, symbolRenameReq{oldName, newName})
+				res[symbolRenameReq{oldName, newName}]++
 			}
 		}
 		return nil
 	})
-	return res, err
+	return singleRenames(res), err
 }
 
 func interfaceMethods(gopath string) (map[string]bool, error) {
@@ -190,4 +197,32 @@ func interfaceMethods(gopath string) (map[string]bool, error) {
 		}
 	}
 	return res, nil
+}
+
+// singleRenames removes any rename requests which appear
+// more than one time.
+// This is necessary because of build constraints, which
+// the refactoring API doesn't seem to properly support.
+func singleRenames(multiset map[symbolRenameReq]int) []symbolRenameReq {
+	var res []symbolRenameReq
+	for x, count := range multiset {
+		if count == 1 {
+			res = append(res, x)
+		}
+	}
+	return res
+}
+
+// containsAssembly checks if a source directory contains
+// any assembly files.
+// We cannot rename symbols in assembly-filled directories
+// because of limitations of the refactoring API.
+func containsAssembly(dir string) bool {
+	contents, _ := ioutil.ReadDir(dir)
+	for _, item := range contents {
+		if filepath.Ext(item.Name()) == ".s" {
+			return true
+		}
+	}
+	return false
 }
