@@ -65,6 +65,9 @@ func (s *stringObfuscator) Visit(n ast.Node) ast.Visitor {
 		if decl.Tok == token.CONST || decl.Tok == token.IMPORT {
 			return nil
 		}
+	} else if _, ok := n.(*ast.StructType); ok {
+		// Avoid messing with annotation strings.
+		return nil
 	}
 	return s
 }
