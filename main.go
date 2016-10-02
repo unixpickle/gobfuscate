@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"go/build"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -60,19 +61,24 @@ func obfuscate(keepTests, outGopath bool, encKey, pkgName, outPath string) bool 
 		defer os.RemoveAll(newGopath)
 	}
 
+	log.Println("Copying GOPATH...")
+
 	if !CopyGopath(pkgName, newGopath, keepTests) {
 		return false
 	}
 
 	enc := &Encrypter{Key: encKey}
+	log.Println("Obfuscating package names...")
 	if err := ObfuscatePackageNames(newGopath, enc); err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to obfuscate package names:", err)
 		return false
 	}
+	log.Println("Obfuscating strings...")
 	if err := ObfuscateStrings(newGopath); err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to obfuscate strings:", err)
 		return false
 	}
+	log.Println("Obfuscating symbols...")
 	if err := ObfuscateSymbols(newGopath, enc); err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to obfuscate symbols:", err)
 		return false
