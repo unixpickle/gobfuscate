@@ -14,9 +14,11 @@ import (
 func main() {
 	var encKey string
 	var outputGopath bool
+	var keepTests bool
 
 	flag.StringVar(&encKey, "enckey", "", "rename encryption key")
 	flag.BoolVar(&outputGopath, "outdir", false, "output a full GOPATH")
+	flag.BoolVar(&keepTests, "keeptests", false, "keep _test.go files")
 
 	flag.Parse()
 
@@ -35,12 +37,12 @@ func main() {
 		encKey = string(buf)
 	}
 
-	if !obfuscate(outputGopath, encKey, pkgName, outPath) {
+	if !obfuscate(keepTests, outputGopath, encKey, pkgName, outPath) {
 		os.Exit(1)
 	}
 }
 
-func obfuscate(outGopath bool, encKey, pkgName, outPath string) bool {
+func obfuscate(keepTests, outGopath bool, encKey, pkgName, outPath string) bool {
 	var newGopath string
 	if outGopath {
 		newGopath = outPath
@@ -58,7 +60,7 @@ func obfuscate(outGopath bool, encKey, pkgName, outPath string) bool {
 		defer os.RemoveAll(newGopath)
 	}
 
-	if !CopyGopath(pkgName, newGopath) {
+	if !CopyGopath(pkgName, newGopath, keepTests) {
 		return false
 	}
 
