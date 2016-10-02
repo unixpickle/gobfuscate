@@ -13,7 +13,7 @@ import (
 	"golang.org/x/tools/refactor/rename"
 )
 
-const MainMethodName = "main"
+var IgnoreMethods = map[string]bool{"main": true, "init": true}
 
 type symbolRenameReq struct {
 	OldName string
@@ -77,7 +77,7 @@ func topLevelRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
 		for _, decl := range file.Decls {
 			switch d := decl.(type) {
 			case *ast.FuncDecl:
-				if d.Name.Name != MainMethodName && d.Recv == nil {
+				if !IgnoreMethods[d.Name.Name] && d.Recv == nil {
 					addRes(pkgPath, d.Name.Name)
 				}
 			case *ast.GenDecl:
