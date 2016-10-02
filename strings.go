@@ -24,8 +24,11 @@ func ObfuscateStrings(gopath string) error {
 		if filepath.Ext(path) != GoExtension || info.IsDir() {
 			return nil
 		}
-		set := token.NewFileSet()
+		if err := stringConstsToVar(path); err != nil {
+			return err
+		}
 
+		set := token.NewFileSet()
 		file, err := parser.ParseFile(set, path, nil, 0)
 		if err != nil {
 			return nil
