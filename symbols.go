@@ -63,7 +63,7 @@ func topLevelRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
 		if err != nil {
 			return err
 		}
-		if info.IsDir() && containsAssembly(path) {
+		if info.IsDir() && containsUnsupportedCode(path) {
 			return filepath.SkipDir
 		}
 		if filepath.Ext(path) != GoExtension {
@@ -114,7 +114,7 @@ func methodRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
 		if err != nil {
 			return err
 		}
-		if info.IsDir() && containsAssembly(path) {
+		if info.IsDir() && containsUnsupportedCode(path) {
 			return filepath.SkipDir
 		}
 		if filepath.Ext(path) != GoExtension {
@@ -213,6 +213,13 @@ func singleRenames(multiset map[symbolRenameReq]int) []symbolRenameReq {
 	return res
 }
 
+// containsUnsupportedCode checks if a source directory
+// contains assembly or CGO code, neither of which are
+// supported by the refactoring API.
+func containsUnsupportedCode(dir string) bool {
+	return containsAssembly(dir) || containsCGO(dir)
+}
+
 // containsAssembly checks if a source directory contains
 // any assembly files.
 // We cannot rename symbols in assembly-filled directories
@@ -222,6 +229,32 @@ func containsAssembly(dir string) bool {
 	for _, item := range contents {
 		if filepath.Ext(item.Name()) == ".s" {
 			return true
+		}
+	}
+	return false
+}
+
+// containsCGO checks if a package relies on CGO.
+// We cannot rename symbols in packages that use CGO due
+// to limitations of the refactoring API.
+func containsCGO(dir string) bool {
+	listing, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, item := range listing {
+		if filepath.Ext(item.Name()) == GoExtension {
+			path := filepath.Join(dir, item.Name())
+			set := token.NewFileSet()
+			file, err := parser.ParseFile(set, path, nil, 0)
+			if err != nil {
+				return false
+			}
+			for _, spec := range file.Imports {
+				if spec.Path.Value == `"C"` {
+					return true
+				}
+			}
 		}
 	}
 	return false

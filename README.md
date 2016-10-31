@@ -12,17 +12,19 @@ Currently, gobfuscate manipulates package names, global variable and function na
 
 When gobfuscate builds your program, it constructs a copy of a subset of your GOPATH. It then refactors this GOPATH by encrypting package names and paths. As a result, a package like "github.com/unixpickle/deleteme" becomes something like "jiikegpkifenppiphdhi/igijfdokiaecdkihheha/jhiofoppieegdaif". This helps get rid of things like Github usernames from the executable.
 
+**Limitation:** currently, packages which use CGO cannot be renamed. I suspect this is due to a bug in Go's refactoring API.
+
 ## Global names
 
 Gobfuscate encrypts the names of global vars, consts, and funcs. It also encrypts the names of any newly-defined types.
 
-Due to restrictions in the refactoring API, this does not work for packages which contain assembly files. It also does not work for names which appear multiple times because of build constraints.
+Due to restrictions in the refactoring API, this does not work for packages which contain assembly files or use CGO. It also does not work for names which appear multiple times because of build constraints.
 
 ## Struct methods
 
 Gobfuscate encrypts the names of most struct methods. However, it does not rename methods whose names match methods of any imported interfaces. This is mostly due to internal constraints from the refactoring engine. Theoretically, most interfaces could be obfuscated as well (except for those in the standard library).
 
-Due to restrictions in the refactoring API, this does not work for packages which contain assembly files. It also does not work for names which appear multiple times because of build constraints.
+Due to restrictions in the refactoring API, this does not work for packages which contain assembly files or use CGO. It also does not work for names which appear multiple times because of build constraints.
 
 ## Strings
 
