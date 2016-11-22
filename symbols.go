@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/tools/refactor/importgraph"
 	"golang.org/x/tools/refactor/rename"
@@ -66,7 +67,7 @@ func topLevelRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
 		if info.IsDir() && containsUnsupportedCode(path) {
 			return filepath.SkipDir
 		}
-		if filepath.Ext(path) != GoExtension {
+		if filepath.Ext(path) != GoExtension || containsIgnoreConstraint(path) {
 			return nil
 		}
 		pkgPath, err := filepath.Rel(srcDir, filepath.Dir(path))
@@ -117,7 +118,7 @@ func methodRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
 		if info.IsDir() && containsUnsupportedCode(path) {
 			return filepath.SkipDir
 		}
-		if filepath.Ext(path) != GoExtension {
+		if filepath.Ext(path) != GoExtension || containsIgnoreConstraint(path) {
 			return nil
 		}
 		pkgPath, err := filepath.Rel(srcDir, filepath.Dir(path))
@@ -255,6 +256,24 @@ func containsCGO(dir string) bool {
 					return true
 				}
 			}
+		}
+	}
+	return false
+}
+
+// containsIgnoreConstraint checks if the file contains an
+// "ignore" build constraint.
+func containsIgnoreConstraint(path string) bool {
+	set := token.NewFileSet()
+	file, err := parser.ParseFile(set, path, nil, parser.ParseComments)
+	if err != nil {
+		return false
+	}
+	packagePos := file.Package
+	for _, comment := range file.Comments {
+		if strings.TrimRight(comment.Text(), "\n\r") == "+build ignore" &&
+			comment.Pos() < packagePos {
+			return true
 		}
 	}
 	return false
