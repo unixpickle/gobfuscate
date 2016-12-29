@@ -63,3 +63,7 @@ const (
   MyNum = 3
 )
 ```
+
+# License
+
+This is under a BSD 2-clause license. See [LICENSE](LICENSE).
