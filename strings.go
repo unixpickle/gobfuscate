@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/gob"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -10,9 +9,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strconv"
 )
@@ -76,45 +73,13 @@ func (s *stringObfuscator) Visit(n ast.Node) ast.Visitor {
 func (s *stringObfuscator) Obfuscate() ([]byte, error) {
 	sort.Sort(s)
 
-	source := `
-        package main
-        import "encoding/gob"
-		import "os"
-        func main() {
-            list := []string{}
-    `
-	for _, n := range s.Nodes {
-		source += "list = append(list, " + n.Value + ")\n"
-	}
-	source += `
-			gob.NewEncoder(os.Stdout).Encode(list)
-        }
-    `
-	tempDir, err := ioutil.TempDir("", "string_obfuscator")
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		os.RemoveAll(tempDir)
-	}()
-	tempFile := filepath.Join(tempDir, "source.go")
-	if err := ioutil.WriteFile(tempFile, []byte(source), 0755); err != nil {
-		return nil, err
-	}
-
-	cmd := exec.Command("go", "run", tempFile)
-	cmd.Env = []string{"GOOS=" + runtime.GOOS, "GOARCH=" + runtime.GOARCH,
-		"GOROOT=" + os.Getenv("GOROOT")}
-	var output bytes.Buffer
-	cmd.Stdout = &output
-	if err := cmd.Run(); err != nil {
-		return nil, err
-	}
-
-	var parsed []string
-	dec := gob.NewDecoder(&output)
-	if err := dec.Decode(&parsed); err != nil {
-		return nil, err
+	parsed := make([]string, s.Len())
+	for i, n := range s.Nodes {
+		var err error
+		parsed[i], err = strconv.Unquote(n.Value)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var lastIndex int
