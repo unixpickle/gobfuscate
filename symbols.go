@@ -262,7 +262,7 @@ func containsCGO(dir string) bool {
 }
 
 // containsIgnoreConstraint checks if the file contains an
-// "ignore" build constraint.
+// "ignore" build constraint or "DO NOT EDIT!" generation marker.
 func containsIgnoreConstraint(path string) bool {
 	set := token.NewFileSet()
 	file, err := parser.ParseFile(set, path, nil, parser.ParseComments)
@@ -271,8 +271,10 @@ func containsIgnoreConstraint(path string) bool {
 	}
 	packagePos := file.Package
 	for _, comment := range file.Comments {
-		if strings.TrimRight(comment.Text(), "\n\r") == "+build ignore" &&
-			comment.Pos() < packagePos {
+		commentStr := strings.TrimRight(comment.Text(), "\n\r")
+		if comment.Pos() < packagePos &&
+			(commentStr == "+build ignore" ||
+				strings.Contains(commentStr, "DO NOT EDIT")) {
 			return true
 		}
 	}
