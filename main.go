@@ -87,7 +87,7 @@ func obfuscate(keepTests, outGopath bool, encKey, pkgName, outPath string) bool 
 	if !outGopath {
 		ctx := build.Default
 		newPkg := encryptComponents(pkgName, enc)
-		cmd := exec.Command("go", "build", "-o", outPath, newPkg)
+		cmd := exec.Command("go", "build", `-ldflags=-s -w -extldflags "-static"`, "-o", outPath, newPkg)
 		cmd.Env = []string{"GOROOT=" + ctx.GOROOT, "GOARCH=" + ctx.GOARCH,
 			"GOOS=" + ctx.GOOS, "GOPATH=" + newGopath, "PATH=" + os.Getenv("PATH")}
 		cmd.Stdout = os.Stdout
