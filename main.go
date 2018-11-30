@@ -90,11 +90,10 @@ func obfuscate(keepTests, outGopath bool, encKey, pkgName, outPath string) bool 
 	if !outGopath {
 		ctx := build.Default
 		newPkg := encryptComponents(pkgName, enc)
-		var ldflags string
-		if winHide == true {
-			ldflags = `-ldflags=-s -w -extldflags "-static" -H=windowsgui`
-		} else {
-			ldflags = `-ldflags=-s -w -extldflags "-static"`
+
+		ldflags := `-ldflags=-s -w -extldflags "-static"`
+		if winHide {
+			ldflags += " -H=windowsgui"
 		}
 
 		cmd := exec.Command("go", "build", ldflags, "-o", outPath, newPkg)
