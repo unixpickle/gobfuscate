@@ -12,6 +12,8 @@ import (
 	"strings"
 )
 
+var winHide bool
+
 func main() {
 	var encKey string
 	var outputGopath bool
@@ -20,6 +22,7 @@ func main() {
 	flag.StringVar(&encKey, "enckey", "", "rename encryption key")
 	flag.BoolVar(&outputGopath, "outdir", false, "output a full GOPATH")
 	flag.BoolVar(&keepTests, "keeptests", false, "keep _test.go files")
+	flag.BoolVar(&winHide, "winhide", false, "Hide windows GUI")
 
 	flag.Parse()
 
@@ -87,7 +90,13 @@ func obfuscate(keepTests, outGopath bool, encKey, pkgName, outPath string) bool 
 	if !outGopath {
 		ctx := build.Default
 		newPkg := encryptComponents(pkgName, enc)
-		cmd := exec.Command("go", "build", `-ldflags=-s -w -extldflags "-static"`, "-o", outPath, newPkg)
+
+		ldflags := `-ldflags=-s -w -extldflags "-static"`
+		if winHide {
+			ldflags += " -H=windowsgui"
+		}
+
+		cmd := exec.Command("go", "build", ldflags, "-o", outPath, newPkg)
 		cmd.Env = []string{"GOROOT=" + ctx.GOROOT, "GOARCH=" + ctx.GOARCH,
 			"GOOS=" + ctx.GOOS, "GOPATH=" + newGopath, "PATH=" + os.Getenv("PATH")}
 		cmd.Stdout = os.Stdout
