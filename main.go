@@ -12,7 +12,11 @@ import (
 	"strings"
 )
 
-var winHide bool
+var (
+	winHide                         bool
+	staticLink                      bool
+	dontUseEncryptedMainPackageName bool
+)
 
 func main() {
 	var encKey string
@@ -23,6 +27,8 @@ func main() {
 	flag.BoolVar(&outputGopath, "outdir", false, "output a full GOPATH")
 	flag.BoolVar(&keepTests, "keeptests", false, "keep _test.go files")
 	flag.BoolVar(&winHide, "winhide", false, "Hide windows GUI")
+	flag.BoolVar(&staticLink, "static", false, "Static link")
+	flag.BoolVar(&dontUseEncryptedMainPackageName, "noencrypt", false, "Don't use the encrypted package name for go build command (works when main package has CGO code)")
 
 	flag.Parse()
 
@@ -89,16 +95,26 @@ func obfuscate(keepTests, outGopath bool, encKey, pkgName, outPath string) bool 
 
 	if !outGopath {
 		ctx := build.Default
-		newPkg := encryptComponents(pkgName, enc)
 
-		ldflags := `-ldflags=-s -w -extldflags "-static"`
+		newPkg := pkgName
+		if dontUseEncryptedMainPackageName == false {
+			newPkg = encryptComponents(pkgName, enc)
+		}
+
+		ldflags := `-ldflags=-s -w`
 		if winHide {
 			ldflags += " -H=windowsgui"
 		}
+		if staticLink {
+			ldflags += ` -extldflags "-static"`
+		}
+
+		goCache := newGopath + "/cache"
+		os.Mkdir(goCache, 0755)
 
 		cmd := exec.Command("go", "build", ldflags, "-o", outPath, newPkg)
 		cmd.Env = []string{"GOROOT=" + ctx.GOROOT, "GOARCH=" + ctx.GOARCH,
-			"GOOS=" + ctx.GOOS, "GOPATH=" + newGopath, "PATH=" + os.Getenv("PATH")}
+			"GOOS=" + ctx.GOOS, "GOPATH=" + newGopath, "PATH=" + os.Getenv("PATH"), "GOCACHE=" + goCache}
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
