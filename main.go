@@ -12,7 +12,12 @@ import (
 	"strings"
 )
 
-var winHide bool
+var (
+	winHide                         bool
+	staticLink                      bool
+	dontUseEncryptedMainPackageName bool
+	verbose                         bool
+)
 
 func main() {
 	var encKey string
@@ -23,6 +28,9 @@ func main() {
 	flag.BoolVar(&outputGopath, "outdir", false, "output a full GOPATH")
 	flag.BoolVar(&keepTests, "keeptests", false, "keep _test.go files")
 	flag.BoolVar(&winHide, "winhide", false, "Hide windows GUI")
+	flag.BoolVar(&staticLink, "static", false, "Static link")
+	flag.BoolVar(&dontUseEncryptedMainPackageName, "noencrypt", false, "Don't use the encrypted package name for go build command (works when main package has CGO code)")
+	flag.BoolVar(&verbose, "verbose", false, "Verbose mode")
 
 	flag.Parse()
 
@@ -89,18 +97,38 @@ func obfuscate(keepTests, outGopath bool, encKey, pkgName, outPath string) bool 
 
 	if !outGopath {
 		ctx := build.Default
-		newPkg := encryptComponents(pkgName, enc)
 
-		ldflags := `-ldflags=-s -w -extldflags "-static"`
+		newPkg := pkgName
+		if dontUseEncryptedMainPackageName == false {
+			newPkg = encryptComponents(pkgName, enc)
+		}
+
+		ldflags := `-ldflags=-s -w`
 		if winHide {
 			ldflags += " -H=windowsgui"
 		}
+		if staticLink {
+			ldflags += ` -extldflags "-static"`
+		}
 
-		cmd := exec.Command("go", "build", ldflags, "-o", outPath, newPkg)
-		cmd.Env = []string{"GOROOT=" + ctx.GOROOT, "GOARCH=" + ctx.GOARCH,
-			"GOOS=" + ctx.GOOS, "GOPATH=" + newGopath, "PATH=" + os.Getenv("PATH")}
+		goCache := newGopath + "/cache"
+		os.Mkdir(goCache, 0755)
+
+		arguments := []string{"build", ldflags, "-o", outPath, newPkg}
+		environment := []string{"GOROOT=" + ctx.GOROOT, "GOARCH=" + ctx.GOARCH,
+			"GOOS=" + ctx.GOOS, "GOPATH=" + newGopath, "PATH=" + os.Getenv("PATH"), "GOCACHE=" + goCache}
+
+		cmd := exec.Command("go", arguments...)
+		cmd.Env = environment
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
+
+		if verbose {
+			printableArguments := strings.Join(arguments, " ")
+			printableEnvironment := strings.Join(environment, "\n")
+			fmt.Printf("\n[Verbose] Temporary path: %s\n[Verbose] Go build command:\ngo %s\n\n[Verbose] Environment variables:\n%s\n\n", newGopath, printableArguments, printableEnvironment)
+		}
+
 		if err := cmd.Run(); err != nil {
 			fmt.Fprintln(os.Stderr, "Failed to compile:", err)
 			return false
