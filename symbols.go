@@ -23,6 +23,7 @@ type symbolRenameReq struct {
 }
 
 func ObfuscateSymbols(gopath string, enc *Encrypter) error {
+	removeDoNotEdit(gopath)
 	renames, err := topLevelRenames(gopath, enc)
 	if err != nil {
 		return fmt.Errorf("top-level renames: %s", err)
@@ -262,7 +263,7 @@ func containsCGO(dir string) bool {
 }
 
 // containsIgnoreConstraint checks if the file contains an
-// "ignore" build constraint or "DO NOT EDIT!" generation marker.
+// "ignore" build constraint.
 func containsIgnoreConstraint(path string) bool {
 	set := token.NewFileSet()
 	file, err := parser.ParseFile(set, path, nil, parser.ParseComments)
@@ -272,11 +273,45 @@ func containsIgnoreConstraint(path string) bool {
 	packagePos := file.Package
 	for _, comment := range file.Comments {
 		commentStr := strings.TrimRight(comment.Text(), "\n\r")
-		if comment.Pos() < packagePos &&
-			(commentStr == "+build ignore" ||
-				strings.Contains(commentStr, "DO NOT EDIT")) {
+		if comment.Pos() < packagePos && commentStr == "+build ignore" {
 			return true
 		}
 	}
 	return false
+}
+
+// removeDoNotEdit removes comments that prevent gorename
+// from working properly.
+func removeDoNotEdit(dir string) error {
+	srcDir := filepath.Join(dir, "src")
+	return filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() || filepath.Ext(path) != GoExtension {
+			return nil
+		}
+
+		set := token.NewFileSet()
+		file, err := parser.ParseFile(set, path, nil, parser.ParseComments)
+		if err != nil {
+			return err
+		}
+		f, err := os.OpenFile(path, os.O_RDWR, 0755)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		for _, comment := range file.Comments {
+			commentStr := comment.Text()
+			if strings.Contains(commentStr, "DO NOT EDIT") {
+				commentStr = strings.Replace(commentStr, "DO NOT EDIT", "XXXXXXXXXXX", -1)
+			}
+			if _, err := f.WriteAt([]byte(commentStr), int64(comment.Pos()+2)); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
