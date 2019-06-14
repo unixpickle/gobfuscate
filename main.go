@@ -12,24 +12,24 @@ import (
 	"strings"
 )
 
+// Command line arguments.
 var (
-	winHide                         bool
-	noStaticLink                    bool
-	dontUseEncryptedMainPackageName bool
-	verbose                         bool
+	encKey              string
+	outputGopath        bool
+	keepTests           bool
+	winHide             bool
+	noStaticLink        bool
+	preservePackageName bool
+	verbose             bool
 )
 
 func main() {
-	var encKey string
-	var outputGopath bool
-	var keepTests bool
-
 	flag.StringVar(&encKey, "enckey", "", "rename encryption key")
 	flag.BoolVar(&outputGopath, "outdir", false, "output a full GOPATH")
 	flag.BoolVar(&keepTests, "keeptests", false, "keep _test.go files")
 	flag.BoolVar(&winHide, "winhide", false, "hide windows GUI")
 	flag.BoolVar(&noStaticLink, "nostatic", false, "do not statically link")
-	flag.BoolVar(&dontUseEncryptedMainPackageName, "noencrypt", false,
+	flag.BoolVar(&preservePackageName, "noencrypt", false,
 		"no encrypted package name for go build command (works when main package has CGO code)")
 	flag.BoolVar(&verbose, "verbose", false, "verbose mode")
 
@@ -50,14 +50,14 @@ func main() {
 		encKey = string(buf)
 	}
 
-	if !obfuscate(keepTests, outputGopath, encKey, pkgName, outPath) {
+	if !obfuscate(pkgName, outPath) {
 		os.Exit(1)
 	}
 }
 
-func obfuscate(keepTests, outGopath bool, encKey, pkgName, outPath string) bool {
+func obfuscate(pkgName, outPath string) bool {
 	var newGopath string
-	if outGopath {
+	if outputGopath {
 		newGopath = outPath
 		if err := os.Mkdir(newGopath, 0755); err != nil {
 			fmt.Fprintln(os.Stderr, "Failed to create destination:", err)
@@ -96,55 +96,57 @@ func obfuscate(keepTests, outGopath bool, encKey, pkgName, outPath string) bool 
 		return false
 	}
 
-	if !outGopath {
-		ctx := build.Default
+	if outputGopath {
+		return true
+	}
 
-		newPkg := pkgName
-		if dontUseEncryptedMainPackageName == false {
-			newPkg = encryptComponents(pkgName, enc)
+	ctx := build.Default
+
+	newPkg := pkgName
+	if !preservePackageName {
+		newPkg = encryptComponents(pkgName, enc)
+	}
+
+	ldflags := `-ldflags=-s -w`
+	if winHide {
+		ldflags += " -H=windowsgui"
+	}
+	if !noStaticLink {
+		ldflags += ` -extldflags "-static"`
+	}
+
+	goCache := newGopath + "/cache"
+	os.Mkdir(goCache, 0755)
+
+	arguments := []string{"build", ldflags, "-o", outPath, newPkg}
+	environment := []string{
+		"GOROOT=" + ctx.GOROOT,
+		"GOARCH=" + ctx.GOARCH,
+		"GOOS=" + ctx.GOOS,
+		"GOPATH=" + newGopath,
+		"PATH=" + os.Getenv("PATH"),
+		"GOCACHE=" + goCache,
+	}
+
+	cmd := exec.Command("go", arguments...)
+	cmd.Env = environment
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if verbose {
+		fmt.Println()
+		fmt.Println("[Verbose] Temporary path:", newGopath)
+		fmt.Println("[Verbose] Go build command: go", strings.Join(arguments, " "))
+		fmt.Println("[Verbose] Environment variables:")
+		for _, envLine := range environment {
+			fmt.Println(envLine)
 		}
+		fmt.Println()
+	}
 
-		ldflags := `-ldflags=-s -w`
-		if winHide {
-			ldflags += " -H=windowsgui"
-		}
-		if !noStaticLink {
-			ldflags += ` -extldflags "-static"`
-		}
-
-		goCache := newGopath + "/cache"
-		os.Mkdir(goCache, 0755)
-
-		arguments := []string{"build", ldflags, "-o", outPath, newPkg}
-		environment := []string{
-			"GOROOT=" + ctx.GOROOT,
-			"GOARCH=" + ctx.GOARCH,
-			"GOOS=" + ctx.GOOS,
-			"GOPATH=" + newGopath,
-			"PATH=" + os.Getenv("PATH"),
-			"GOCACHE=" + goCache,
-		}
-
-		cmd := exec.Command("go", arguments...)
-		cmd.Env = environment
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		if verbose {
-			printableArguments := strings.Join(arguments, " ")
-			printableEnvironment := strings.Join(environment, "\n")
-			fmt.Println()
-			fmt.Println("[Verbose] Temporary path:", newGopath)
-			fmt.Println("[Verbose] Go build command: go", printableArguments)
-			fmt.Println("[Verbose] Environment variables:")
-			fmt.Println(printableEnvironment)
-			fmt.Println()
-		}
-
-		if err := cmd.Run(); err != nil {
-			fmt.Fprintln(os.Stderr, "Failed to compile:", err)
-			return false
-		}
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to compile:", err)
+		return false
 	}
 
 	return true
