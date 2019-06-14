@@ -14,7 +14,7 @@ import (
 
 var (
 	winHide                         bool
-	staticLink                      bool
+	noStaticLink                    bool
 	dontUseEncryptedMainPackageName bool
 	verbose                         bool
 )
@@ -27,10 +27,11 @@ func main() {
 	flag.StringVar(&encKey, "enckey", "", "rename encryption key")
 	flag.BoolVar(&outputGopath, "outdir", false, "output a full GOPATH")
 	flag.BoolVar(&keepTests, "keeptests", false, "keep _test.go files")
-	flag.BoolVar(&winHide, "winhide", false, "Hide windows GUI")
-	flag.BoolVar(&staticLink, "static", false, "Static link")
-	flag.BoolVar(&dontUseEncryptedMainPackageName, "noencrypt", false, "Don't use the encrypted package name for go build command (works when main package has CGO code)")
-	flag.BoolVar(&verbose, "verbose", false, "Verbose mode")
+	flag.BoolVar(&winHide, "winhide", false, "hide windows GUI")
+	flag.BoolVar(&noStaticLink, "nostatic", false, "do not statically link")
+	flag.BoolVar(&dontUseEncryptedMainPackageName, "noencrypt", false,
+		"no encrypted package name for go build command (works when main package has CGO code)")
+	flag.BoolVar(&verbose, "verbose", false, "verbose mode")
 
 	flag.Parse()
 
@@ -107,7 +108,7 @@ func obfuscate(keepTests, outGopath bool, encKey, pkgName, outPath string) bool 
 		if winHide {
 			ldflags += " -H=windowsgui"
 		}
-		if staticLink {
+		if !noStaticLink {
 			ldflags += ` -extldflags "-static"`
 		}
 
@@ -115,8 +116,14 @@ func obfuscate(keepTests, outGopath bool, encKey, pkgName, outPath string) bool 
 		os.Mkdir(goCache, 0755)
 
 		arguments := []string{"build", ldflags, "-o", outPath, newPkg}
-		environment := []string{"GOROOT=" + ctx.GOROOT, "GOARCH=" + ctx.GOARCH,
-			"GOOS=" + ctx.GOOS, "GOPATH=" + newGopath, "PATH=" + os.Getenv("PATH"), "GOCACHE=" + goCache}
+		environment := []string{
+			"GOROOT=" + ctx.GOROOT,
+			"GOARCH=" + ctx.GOARCH,
+			"GOOS=" + ctx.GOOS,
+			"GOPATH=" + newGopath,
+			"PATH=" + os.Getenv("PATH"),
+			"GOCACHE=" + goCache,
+		}
 
 		cmd := exec.Command("go", arguments...)
 		cmd.Env = environment
@@ -126,7 +133,12 @@ func obfuscate(keepTests, outGopath bool, encKey, pkgName, outPath string) bool 
 		if verbose {
 			printableArguments := strings.Join(arguments, " ")
 			printableEnvironment := strings.Join(environment, "\n")
-			fmt.Printf("\n[Verbose] Temporary path: %s\n[Verbose] Go build command:\ngo %s\n\n[Verbose] Environment variables:\n%s\n\n", newGopath, printableArguments, printableEnvironment)
+			fmt.Println()
+			fmt.Println("[Verbose] Temporary path:", newGopath)
+			fmt.Println("[Verbose] Go build command: go", printableArguments)
+			fmt.Println("[Verbose] Environment variables:")
+			fmt.Println(printableEnvironment)
+			fmt.Println()
 		}
 
 		if err := cmd.Run(); err != nil {
