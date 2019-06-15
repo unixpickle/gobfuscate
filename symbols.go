@@ -138,11 +138,11 @@ func methodRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
 			}
 			prefix := "\"" + pkgPath + "\"."
 			for _, rec := range d.Recv.List {
-				s, ok := rec.Type.(fmt.Stringer)
-				if !ok {
+				receiver := receiverString(prefix, rec)
+				if receiver == "" {
 					continue
 				}
-				oldName := prefix + s.String() + "." + d.Name.Name
+				oldName := receiver + "." + d.Name.Name
 				newName := enc.Encrypt(d.Name.Name)
 				res[symbolRenameReq{oldName, newName}]++
 			}
@@ -314,4 +314,17 @@ func removeDoNotEdit(dir string) error {
 
 		return nil
 	})
+}
+
+// receiverString gets the string representation of a
+// method receiver so that the method can be renamed.
+func receiverString(prefix string, rec *ast.Field) string {
+	if stringer, ok := rec.Type.(fmt.Stringer); ok {
+		return prefix + stringer.String()
+	} else if star, ok := rec.Type.(*ast.StarExpr); ok {
+		if stringer, ok := star.X.(fmt.Stringer); ok {
+			return "(*" + prefix + stringer.String() + ")"
+		}
+	}
+	return ""
 }
