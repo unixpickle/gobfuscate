@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"go/build"
 	"io"
@@ -14,88 +13,90 @@ import (
 
 // CopyGopath creates a new Gopath with a copy of a package
 // and all of its dependencies.
-func CopyGopath(packageName, newGopath string, keepTests bool) bool {
+func CopyGopath(packageName, newGopath string, keepTests bool) error {
 	ctx := build.Default
-	if ctx.GOPATH == "" {
-		fmt.Fprintln(os.Stderr, "GOPATH not set.")
+
+	rootPkg, err := ctx.Import(packageName, "", 0)
+	if err != nil {
+		return err
 	}
-	forward, _, errs := importgraph.Build(&ctx)
-	if _, ok := forward[packageName]; !ok {
-		fmt.Fprintln(os.Stderr, "Failed to build import graph:", packageName)
-		if err, ok := errs[packageName]; ok {
-			fmt.Fprintln(os.Stderr, " -> Error for package:", err)
-		}
-		return false
+
+	allDeps, err := findDeps(packageName, &ctx)
+	if err != nil {
+		return err
 	}
-	allDeps := forward.Search(packageName)
 
 	for dep := range allDeps {
-		err := copyDep(dep, ctx.GOPATH, newGopath, keepTests)
+		pkg, err := build.Default.Import(dep, rootPkg.Dir, 0)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to copy %s: %s\n", dep, err)
-			return false
+			return err
+		}
+		if pkg.Goroot {
+			continue
+		}
+		if err := copyDep(pkg, newGopath, keepTests); err != nil {
+			return err
 		}
 	}
 
 	if !keepTests {
 		ctx.GOPATH = newGopath
-		forward, _, errs = importgraph.Build(&ctx)
-		if _, ok := forward[packageName]; !ok {
-			fmt.Fprintln(os.Stderr, "Failed to re-build import graph:", packageName)
-			if err, ok := errs[packageName]; ok {
-				fmt.Fprintln(os.Stderr, " -> Error for package:", err)
-			}
-			return false
+		allDeps, err = findDeps(packageName, &ctx)
+		if err != nil {
+			return err
 		}
-		allDeps = forward.Search(packageName)
 	}
 
 	if err := removeUnusedPkgs(newGopath, allDeps); err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to prune sub-packages:", err)
-		return false
+		return err
 	}
-	return true
+
+	return nil
 }
 
-func copyDep(packagePath, oldGopath, newGopath string, keepTests bool) error {
-	oldPath := filepath.Join(oldGopath, "src", packagePath)
-	if _, err := os.Stat(oldPath); os.IsNotExist(err) {
-		return nil
+func findDeps(packageName string, ctx *build.Context) (map[string]bool, error) {
+	forward, _, errs := importgraph.Build(ctx)
+	if _, ok := forward[packageName]; !ok {
+		if err, ok := errs[packageName]; ok {
+			return nil, err
+		}
+		return nil, fmt.Errorf("package %s not found", packageName)
 	}
-	newPath := filepath.Join(newGopath, "src", packagePath)
-	if _, err := os.Stat(newPath); err == nil {
-		os.RemoveAll(newPath)
-	}
+	return forward.Search(packageName), nil
+}
+
+func copyDep(pkg *build.Package, newGopath string, keepTests bool) error {
+	newPath := filepath.Join(newGopath, "src", pkg.ImportPath)
 	createDir(newPath)
-	return filepath.Walk(oldPath, func(source string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		base, err := filepath.Rel(oldGopath, source)
-		if err != nil {
-			return err
-		}
-		newPath := filepath.Join(newGopath, base)
-		if info.IsDir() {
-			return createDir(newPath)
-		} else {
-			if !keepTests && strings.HasSuffix(source, "_test.go") {
-				return nil
-			}
-			newFile, err := os.Create(newPath)
-			if err != nil {
+
+	srcFiles := [][]string{
+		pkg.GoFiles,
+		pkg.CgoFiles,
+		pkg.CFiles,
+		pkg.CXXFiles,
+		pkg.MFiles,
+		pkg.HFiles,
+		pkg.FFiles,
+		pkg.SFiles,
+		pkg.SwigFiles,
+		pkg.SwigCXXFiles,
+		pkg.SysoFiles,
+	}
+	if keepTests {
+		srcFiles = append(srcFiles, pkg.TestGoFiles, pkg.XTestGoFiles)
+	}
+
+	for _, list := range srcFiles {
+		for _, file := range list {
+			src := filepath.Join(pkg.Dir, file)
+			dst := filepath.Join(newPath, file)
+			if err := copyFile(src, dst); err != nil {
 				return err
 			}
-			defer newFile.Close()
-			oldFile, err := os.Open(source)
-			if err != nil {
-				return err
-			}
-			defer oldFile.Close()
-			_, err = io.Copy(newFile, oldFile)
-			return err
 		}
-	})
+	}
+
+	return nil
 }
 
 func removeUnusedPkgs(gopath string, deps map[string]bool) error {
@@ -130,7 +131,7 @@ func createDir(dir string) error {
 		if info.IsDir() {
 			return nil
 		} else {
-			return errors.New("file already exists: " + dir)
+			return fmt.Errorf("file already exists: %s", dir)
 		}
 	}
 	if filepath.Dir(dir) != dir {
@@ -140,4 +141,19 @@ func createDir(dir string) error {
 		}
 	}
 	return os.Mkdir(dir, 0755)
+}
+
+func copyFile(src, dest string) error {
+	newFile, err := os.Create(dest)
+	if err != nil {
+		return err
+	}
+	defer newFile.Close()
+	oldFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer oldFile.Close()
+	_, err = io.Copy(newFile, oldFile)
+	return err
 }

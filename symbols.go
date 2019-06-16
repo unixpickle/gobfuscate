@@ -69,7 +69,7 @@ func topLevelRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
 		if info.IsDir() && containsUnsupportedCode(path) {
 			return filepath.SkipDir
 		}
-		if filepath.Ext(path) != GoExtension || containsIgnoreConstraint(path) {
+		if filepath.Ext(path) != GoExtension {
 			return nil
 		}
 		pkgPath, err := filepath.Rel(srcDir, filepath.Dir(path))
@@ -120,7 +120,7 @@ func methodRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
 		if info.IsDir() && containsUnsupportedCode(path) {
 			return filepath.SkipDir
 		}
-		if filepath.Ext(path) != GoExtension || containsIgnoreConstraint(path) {
+		if filepath.Ext(path) != GoExtension {
 			return nil
 		}
 		pkgPath, err := filepath.Rel(srcDir, filepath.Dir(path))
@@ -258,24 +258,6 @@ func containsCGO(dir string) bool {
 					return true
 				}
 			}
-		}
-	}
-	return false
-}
-
-// containsIgnoreConstraint checks if the file contains an
-// "ignore" build constraint.
-func containsIgnoreConstraint(path string) bool {
-	set := token.NewFileSet()
-	file, err := parser.ParseFile(set, path, nil, parser.ParseComments)
-	if err != nil {
-		return false
-	}
-	packagePos := file.Package
-	for _, comment := range file.Comments {
-		commentStr := strings.TrimRight(comment.Text(), "\n\r")
-		if comment.Pos() < packagePos && commentStr == "+build ignore" {
-			return true
 		}
 	}
 	return false
