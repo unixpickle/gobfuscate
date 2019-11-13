@@ -8,6 +8,7 @@ import (
 	"go/token"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,7 +48,8 @@ func runRenames(gopath string, renames []symbolRenameReq) error {
 	ctx.GOPATH = gopath
 	for _, r := range renames {
 		if err := rename.Main(&ctx, "", r.OldName, r.NewName); err != nil {
-			return err
+			log.Println("Error running renames proceding...", err)
+			continue
 		}
 	}
 	return nil
