@@ -10,6 +10,7 @@ go get -u github.com/unixpickle/gobfuscate
 gobfuscate [flags] pkg_name out_path
 ```
 `pkg_name` is the path relative from your $GOPATH/src to the package to obfuscate (typically something like domain.tld/user/repo)
+
 `out_path` is the path where the binary will be written to
 
 ### Flags
@@ -38,25 +39,25 @@ Usage: gobfuscate [flags] pkg_name out_path
 
 Currently, gobfuscate manipulates package names, global variable and function names, type names, method names, and strings.
 
-## Package name obfuscation
+### Package name obfuscation
 
 When gobfuscate builds your program, it constructs a copy of a subset of your GOPATH. It then refactors this GOPATH by hashing package names and paths. As a result, a package like "github.com/unixpickle/deleteme" becomes something like "jiikegpkifenppiphdhi/igijfdokiaecdkihheha/jhiofoppieegdaif". This helps get rid of things like Github usernames from the executable.
 
 **Limitation:** currently, packages which use CGO cannot be renamed. I suspect this is due to a bug in Go's refactoring API.
 
-## Global names
+### Global names
 
 Gobfuscate hashes the names of global vars, consts, and funcs. It also hashes the names of any newly-defined types.
 
 Due to restrictions in the refactoring API, this does not work for packages which contain assembly files or use CGO. It also does not work for names which appear multiple times because of build constraints.
 
-## Struct methods
+### Struct methods
 
 Gobfuscate hashes the names of most struct methods. However, it does not rename methods whose names match methods of any imported interfaces. This is mostly due to internal constraints from the refactoring engine. Theoretically, most interfaces could be obfuscated as well (except for those in the standard library).
 
 Due to restrictions in the refactoring API, this does not work for packages which contain assembly files or use CGO. It also does not work for names which appear multiple times because of build constraints.
 
-## Strings
+### Strings
 
 Strings are obfuscated by replacing them with functions. A string will be turned into an expression like the following:
 
