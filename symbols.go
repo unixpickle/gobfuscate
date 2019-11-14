@@ -6,7 +6,6 @@ import (
 	"go/build"
 	"go/parser"
 	"go/token"
-	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -277,24 +276,28 @@ func removeDoNotEdit(dir string) error {
 			return nil
 		}
 
-		set := token.NewFileSet()
-		file, err := parser.ParseFile(set, path, nil, parser.ParseComments)
-		if err != nil {
-			return err
-		}
 		f, err := os.OpenFile(path, os.O_RDWR, 0755)
 		if err != nil {
 			return err
 		}
 		defer f.Close()
+
+		content, err := ioutil.ReadAll(f)
+		if err != nil {
+			return err
+		}
+
+		set := token.NewFileSet()
+		file, err := parser.ParseFile(set, path, content, parser.ParseComments)
+		if err != nil {
+			return err
+		}
+
 		for _, comment := range file.Comments {
 			data := make([]byte, comment.End()-comment.Pos())
-			if _, err := f.Seek(int64(comment.Pos()-1), io.SeekStart); err != nil {
-				return err
-			}
-			if _, err := io.ReadFull(f, data); err != nil {
-				return err
-			}
+			start := int(comment.Pos())
+			end := start + len(data)
+			data = content[start:end]
 			commentStr := string(data)
 			if strings.Contains(commentStr, "DO NOT EDIT") {
 				commentStr = strings.Replace(commentStr, "DO NOT EDIT", "XXXXXXXXXXX", -1)
@@ -303,7 +306,6 @@ func removeDoNotEdit(dir string) error {
 				}
 			}
 		}
-
 		return nil
 	})
 }

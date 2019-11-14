@@ -100,11 +100,11 @@ func isMainPackage(dir string) bool {
 		if isGoFile(item.Name()) {
 			path := filepath.Join(dir, item.Name())
 			set := token.NewFileSet()
-			file, err := parser.ParseFile(set, path, nil, 0)
+			contents, err := ioutil.ReadFile(path)
 			if err != nil {
 				return false
 			}
-			contents, err := ioutil.ReadFile(path)
+			file, err := parser.ParseFile(set, path, contents, 0)
 			if err != nil {
 				return false
 			}
@@ -128,12 +128,13 @@ func makeMainPackage(dir string) error {
 			continue
 		}
 		path := filepath.Join(dir, item.Name())
-		set := token.NewFileSet()
-		file, err := parser.ParseFile(set, path, nil, 0)
+		contents, err := ioutil.ReadFile(path)
 		if err != nil {
 			return err
 		}
-		contents, err := ioutil.ReadFile(path)
+
+		set := token.NewFileSet()
+		file, err := parser.ParseFile(set, path, contents, 0)
 		if err != nil {
 			return err
 		}

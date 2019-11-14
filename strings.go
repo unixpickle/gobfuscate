@@ -26,14 +26,15 @@ func ObfuscateStrings(gopath string) error {
 			return err
 		}
 
-		set := token.NewFileSet()
-		file, err := parser.ParseFile(set, path, nil, 0)
-		if err != nil {
-			return nil
-		}
 		contents, err := ioutil.ReadFile(path)
 		if err != nil {
 			return err
+		}
+
+		set := token.NewFileSet()
+		file, err := parser.ParseFile(set, path, contents, 0)
+		if err != nil {
+			return nil
 		}
 
 		obfuscator := &stringObfuscator{Contents: contents}
