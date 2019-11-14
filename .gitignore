@@ -1,0 +1,3 @@
+# Ignore binary
+/gobfuscate
+*.exe
