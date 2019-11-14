@@ -38,14 +38,6 @@ func CopyGopath(packageName, newGopath string, keepTests bool) error {
 		}
 	}
 
-	if !keepTests {
-		ctx.GOPATH = newGopath
-		allDeps, err = findDeps(packageName, &ctx)
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
