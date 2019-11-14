@@ -14,7 +14,7 @@ import (
 	"golang.org/x/tools/refactor/rename"
 )
 
-func ObfuscatePackageNames(gopath string, enc *Encrypter) error {
+func ObfuscatePackageNames(gopath string, p Padding) error {
 	ctx := build.Default
 	ctx.GOPATH = gopath
 
@@ -37,7 +37,7 @@ func ObfuscatePackageNames(gopath string, enc *Encrypter) error {
 				continue
 			}
 			isMain := isMainPackage(dirPath)
-			encPath := encryptPackageName(dirPath, enc)
+			encPath := encryptPackageName(dirPath, p)
 			srcPkg, err := filepath.Rel(srcDir, dirPath)
 			if err != nil {
 				return err
@@ -86,9 +86,9 @@ func scanLevel(dir string, depth int, res chan<- string, done <-chan struct{}) {
 	}
 }
 
-func encryptPackageName(dir string, enc *Encrypter) string {
+func encryptPackageName(dir string, p Padding) string {
 	subDir, base := filepath.Split(dir)
-	return filepath.Join(subDir, enc.Encrypt(base))
+	return filepath.Join(subDir, p.Hash(base))
 }
 
 func isMainPackage(dir string) bool {

@@ -23,16 +23,16 @@ type symbolRenameReq struct {
 	NewName string
 }
 
-func ObfuscateSymbols(gopath string, enc *Encrypter) error {
+func ObfuscateSymbols(gopath string, p Padding) error {
 	removeDoNotEdit(gopath)
-	renames, err := topLevelRenames(gopath, enc)
+	renames, err := topLevelRenames(gopath, p)
 	if err != nil {
 		return fmt.Errorf("top-level renames: %s", err)
 	}
 	if err := runRenames(gopath, renames); err != nil {
 		return fmt.Errorf("top-level renaming: %s", err)
 	}
-	renames, err = methodRenames(gopath, enc)
+	renames, err = methodRenames(gopath, p)
 	if err != nil {
 		return fmt.Errorf("method renames: %s", err)
 	}
@@ -54,13 +54,13 @@ func runRenames(gopath string, renames []symbolRenameReq) error {
 	return nil
 }
 
-func topLevelRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
+func topLevelRenames(gopath string, p Padding) ([]symbolRenameReq, error) {
 	srcDir := filepath.Join(gopath, "src")
 	res := map[symbolRenameReq]int{}
 	addRes := func(pkgPath, name string) {
 		prefix := "\"" + pkgPath + "\"."
 		oldName := prefix + name
-		newName := enc.Encrypt(name)
+		newName := p.Hash(name)
 		res[symbolRenameReq{oldName, newName}]++
 	}
 	err := filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
@@ -106,7 +106,7 @@ func topLevelRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
 	return singleRenames(res), err
 }
 
-func methodRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
+func methodRenames(gopath string, p Padding) ([]symbolRenameReq, error) {
 	exclude, err := interfaceMethods(gopath)
 	if err != nil {
 		return nil, err
@@ -145,7 +145,7 @@ func methodRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
 					continue
 				}
 				oldName := receiver + "." + d.Name.Name
-				newName := enc.Encrypt(d.Name.Name)
+				newName := p.Hash(d.Name.Name)
 				res[symbolRenameReq{oldName, newName}]++
 			}
 		}
