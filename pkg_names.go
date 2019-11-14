@@ -14,8 +14,6 @@ import (
 	"golang.org/x/tools/refactor/rename"
 )
 
-const GoExtension = ".go"
-
 func ObfuscatePackageNames(gopath string, enc *Encrypter) error {
 	ctx := build.Default
 	ctx.GOPATH = gopath
@@ -99,7 +97,7 @@ func isMainPackage(dir string) bool {
 		return false
 	}
 	for _, item := range listing {
-		if filepath.Ext(item.Name()) == GoExtension {
+		if isGoFile(item.Name()) {
 			path := filepath.Join(dir, item.Name())
 			set := token.NewFileSet()
 			file, err := parser.ParseFile(set, path, nil, 0)
@@ -126,7 +124,7 @@ func makeMainPackage(dir string) error {
 		return err
 	}
 	for _, item := range listing {
-		if filepath.Ext(item.Name()) != GoExtension {
+		if !isGoFile(item.Name()) {
 			continue
 		}
 		path := filepath.Join(dir, item.Name())

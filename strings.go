@@ -19,7 +19,7 @@ func ObfuscateStrings(gopath string) error {
 		if err != nil {
 			return err
 		}
-		if filepath.Ext(path) != GoExtension || info.IsDir() {
+		if info.IsDir() || !isGoFile(path) {
 			return nil
 		}
 		if err := stringConstsToVar(path); err != nil {

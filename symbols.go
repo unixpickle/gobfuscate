@@ -71,7 +71,7 @@ func topLevelRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
 		if info.IsDir() && containsUnsupportedCode(path) {
 			return filepath.SkipDir
 		}
-		if filepath.Ext(path) != GoExtension {
+		if !isGoFile(path) {
 			return nil
 		}
 		pkgPath, err := filepath.Rel(srcDir, filepath.Dir(path))
@@ -122,7 +122,7 @@ func methodRenames(gopath string, enc *Encrypter) ([]symbolRenameReq, error) {
 		if info.IsDir() && containsUnsupportedCode(path) {
 			return filepath.SkipDir
 		}
-		if filepath.Ext(path) != GoExtension {
+		if !isGoFile(path) {
 			return nil
 		}
 		pkgPath, err := filepath.Rel(srcDir, filepath.Dir(path))
@@ -248,7 +248,7 @@ func containsCGO(dir string) bool {
 		return false
 	}
 	for _, item := range listing {
-		if filepath.Ext(item.Name()) == GoExtension {
+		if isGoFile(item.Name()) {
 			path := filepath.Join(dir, item.Name())
 			set := token.NewFileSet()
 			file, err := parser.ParseFile(set, path, nil, 0)
@@ -273,7 +273,7 @@ func removeDoNotEdit(dir string) error {
 		if err != nil {
 			return err
 		}
-		if info.IsDir() || filepath.Ext(path) != GoExtension {
+		if info.IsDir() || !isGoFile(path) {
 			return nil
 		}
 
