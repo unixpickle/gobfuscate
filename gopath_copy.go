@@ -67,7 +67,10 @@ func findDeps(packageName string, ctx *build.Context) (map[string]bool, error) {
 
 func copyDep(pkg *build.Package, newGopath string, keepTests bool) error {
 	newPath := filepath.Join(newGopath, "src", pkg.ImportPath)
-	createDir(newPath)
+	err := os.MkdirAll(newPath, 0755)
+	if err != nil {
+		return err
+	}
 
 	srcFiles := [][]string{
 		pkg.GoFiles,
@@ -124,23 +127,6 @@ func containsDep(gopath, dir string, deps map[string]bool) bool {
 		}
 	}
 	return false
-}
-
-func createDir(dir string) error {
-	if info, err := os.Stat(dir); err == nil {
-		if info.IsDir() {
-			return nil
-		} else {
-			return fmt.Errorf("file already exists: %s", dir)
-		}
-	}
-	if filepath.Dir(dir) != dir {
-		parent := filepath.Dir(dir)
-		if err := createDir(parent); err != nil {
-			return err
-		}
-	}
-	return os.Mkdir(dir, 0755)
 }
 
 func copyFile(src, dest string) error {
