@@ -15,6 +15,7 @@ import (
 // Command line arguments.
 var (
 	customPadding       string
+	tags                string
 	outputGopath        bool
 	keepTests           bool
 	winHide             bool
@@ -32,6 +33,7 @@ func main() {
 	flag.BoolVar(&preservePackageName, "noencrypt", false,
 		"no encrypted package name for go build command (works when main package has CGO code)")
 	flag.BoolVar(&verbose, "verbose", false, "verbose mode")
+	flag.StringVar(&tags, "tags", "", "tags are passed to the go compiler")
 
 	flag.Parse()
 
@@ -109,18 +111,20 @@ func obfuscate(pkgName, outPath string) bool {
 		newPkg = encryptComponents(pkgName, p)
 	}
 
-	ldflags := `-ldflags=-s -w`
+	ldflags := `-ldflags "-s -w`
 	if winHide {
 		ldflags += " -H=windowsgui"
 	}
 	if !noStaticLink {
-		ldflags += ` -extldflags "-static"`
+		ldflags += ` -extldflags '-static'`
 	}
+	ldflags += `"`
+	tagsFlag := `-tags "` + tags + `"`
 
 	goCache := newGopath + "/cache"
 	os.Mkdir(goCache, 0755)
 
-	arguments := []string{"build", ldflags, "-o", outPath, newPkg}
+	arguments := []string{"build", ldflags, tagsFlag, "-o", outPath, newPkg}
 	environment := []string{
 		"GOROOT=" + ctx.GOROOT,
 		"GOARCH=" + ctx.GOARCH,
