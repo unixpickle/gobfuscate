@@ -6,7 +6,7 @@ import (
 	"go/build"
 	"io/ioutil"
 	"log"
-	"math/rand"
+	"crypto/rand"
 	"os"
 	"os/exec"
 	"strings"
