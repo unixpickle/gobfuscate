@@ -1,12 +1,12 @@
 package main
 
 import (
+	"crypto/rand"
 	"flag"
 	"fmt"
 	"go/build"
 	"io/ioutil"
 	"log"
-	"crypto/rand"
 	"os"
 	"os/exec"
 	"strings"
@@ -75,17 +75,17 @@ func obfuscate(pkgName, outPath string) bool {
 		fmt.Fprintln(os.Stderr, "Failed to copy into a new GOPATH:", err)
 		return false
 	}
-	var p Padding
+	var n NameHasher
 	if customPadding == "" {
 		buf := make([]byte, 32)
 		rand.Read(buf)
-		p = buf
+		n = buf
 	} else {
-		p = []byte(customPadding)
+		n = []byte(customPadding)
 	}
 
 	log.Println("Obfuscating package names...")
-	if err := ObfuscatePackageNames(newGopath, p); err != nil {
+	if err := ObfuscatePackageNames(newGopath, n); err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to obfuscate package names:", err)
 		return false
 	}
@@ -95,7 +95,7 @@ func obfuscate(pkgName, outPath string) bool {
 		return false
 	}
 	log.Println("Obfuscating symbols...")
-	if err := ObfuscateSymbols(newGopath, p); err != nil {
+	if err := ObfuscateSymbols(newGopath, n); err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to obfuscate symbols:", err)
 		return false
 	}
@@ -108,7 +108,7 @@ func obfuscate(pkgName, outPath string) bool {
 
 	newPkg := pkgName
 	if !preservePackageName {
-		newPkg = encryptComponents(pkgName, p)
+		newPkg = encryptComponents(pkgName, n)
 	}
 
 	ldflags := `-ldflags "-s -w`
@@ -158,10 +158,10 @@ func obfuscate(pkgName, outPath string) bool {
 	return true
 }
 
-func encryptComponents(pkgName string, p Padding) string {
+func encryptComponents(pkgName string, n NameHasher) string {
 	comps := strings.Split(pkgName, "/")
 	for i, comp := range comps {
-		comps[i] = p.Hash(comp)
+		comps[i] = n.Hash(comp)
 	}
 	return strings.Join(comps, "/")
 }
