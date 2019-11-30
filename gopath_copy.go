@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/tools/refactor/importgraph"
 )
@@ -38,6 +39,17 @@ func CopyGopath(packageName, newGopath string, keepTests bool) error {
 		}
 	}
 
+	if !keepTests {
+		ctx.GOPATH = newGopath
+		allDeps, err = findDeps(packageName, &ctx)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := removeUnusedPkgs(newGopath, allDeps); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -87,6 +99,33 @@ func copyDep(pkg *build.Package, newGopath string, keepTests bool) error {
 	}
 
 	return nil
+}
+
+func removeUnusedPkgs(gopath string, deps map[string]bool) error {
+	srcDir := filepath.Join(gopath, "src")
+	return filepath.Walk(srcDir, func(sub string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			return nil
+		}
+		if !containsDep(gopath, sub, deps) {
+			os.RemoveAll(sub)
+			return filepath.SkipDir
+		}
+		return nil
+	})
+}
+
+func containsDep(gopath, dir string, deps map[string]bool) bool {
+	for dep := range deps {
+		depDir := filepath.Clean(filepath.Join(gopath, "src", dep))
+		if strings.HasPrefix(depDir, filepath.Clean(dir)) {
+			return true
+		}
+	}
+	return false
 }
 
 func copyFile(src, dest string) error {
