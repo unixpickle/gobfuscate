@@ -8,15 +8,14 @@ import (
 
 const hashedSymbolSize = 10
 
-// An Encrypter encrypts textual tokens.
-type Encrypter struct {
-	Key string
-}
+// A NameHasher is added to the input of a hash function
+// to make it 'impossible' to find the input value
+type NameHasher []byte
 
-// Encrypt encrypts the token.
+// Hash hashes the padding + token.
 // The case of the first letter of the token is preserved.
-func (e *Encrypter) Encrypt(token string) string {
-	hashArray := sha256.Sum256([]byte(e.Key + token))
+func (n NameHasher) Hash(token string) string {
+	hashArray := sha256.Sum256(append(n, []byte(token)...))
 
 	hexStr := strings.ToLower(hex.EncodeToString(hashArray[:hashedSymbolSize]))
 	for i, x := range hexStr {

@@ -19,21 +19,22 @@ func ObfuscateStrings(gopath string) error {
 		if err != nil {
 			return err
 		}
-		if filepath.Ext(path) != GoExtension || info.IsDir() {
+		if info.IsDir() || !isGoFile(path) {
 			return nil
 		}
 		if err := stringConstsToVar(path); err != nil {
 			return err
 		}
 
-		set := token.NewFileSet()
-		file, err := parser.ParseFile(set, path, nil, 0)
-		if err != nil {
-			return nil
-		}
 		contents, err := ioutil.ReadFile(path)
 		if err != nil {
 			return err
+		}
+
+		set := token.NewFileSet()
+		file, err := parser.ParseFile(set, path, contents, 0)
+		if err != nil {
+			return nil
 		}
 
 		obfuscator := &stringObfuscator{Contents: contents}

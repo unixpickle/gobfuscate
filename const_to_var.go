@@ -18,7 +18,7 @@ func stringConstsToVar(path string) error {
 	}
 
 	set := token.NewFileSet()
-	file, err := parser.ParseFile(set, path, nil, 0)
+	file, err := parser.ParseFile(set, path, contents, 0)
 	if err != nil {
 		// If the file is invalid, we do nothing.
 		return nil

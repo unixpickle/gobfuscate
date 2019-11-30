@@ -14,9 +14,7 @@ import (
 	"golang.org/x/tools/refactor/rename"
 )
 
-const GoExtension = ".go"
-
-func ObfuscatePackageNames(gopath string, enc *Encrypter) error {
+func ObfuscatePackageNames(gopath string, n NameHasher) error {
 	ctx := build.Default
 	ctx.GOPATH = gopath
 
@@ -39,7 +37,7 @@ func ObfuscatePackageNames(gopath string, enc *Encrypter) error {
 				continue
 			}
 			isMain := isMainPackage(dirPath)
-			encPath := encryptPackageName(dirPath, enc)
+			encPath := encryptPackageName(dirPath, n)
 			srcPkg, err := filepath.Rel(srcDir, dirPath)
 			if err != nil {
 				return err
@@ -88,9 +86,9 @@ func scanLevel(dir string, depth int, res chan<- string, done <-chan struct{}) {
 	}
 }
 
-func encryptPackageName(dir string, enc *Encrypter) string {
+func encryptPackageName(dir string, p NameHasher) string {
 	subDir, base := filepath.Split(dir)
-	return filepath.Join(subDir, enc.Encrypt(base))
+	return filepath.Join(subDir, p.Hash(base))
 }
 
 func isMainPackage(dir string) bool {
@@ -99,14 +97,14 @@ func isMainPackage(dir string) bool {
 		return false
 	}
 	for _, item := range listing {
-		if filepath.Ext(item.Name()) == GoExtension {
+		if isGoFile(item.Name()) {
 			path := filepath.Join(dir, item.Name())
 			set := token.NewFileSet()
-			file, err := parser.ParseFile(set, path, nil, 0)
+			contents, err := ioutil.ReadFile(path)
 			if err != nil {
 				return false
 			}
-			contents, err := ioutil.ReadFile(path)
+			file, err := parser.ParseFile(set, path, contents, 0)
 			if err != nil {
 				return false
 			}
@@ -126,16 +124,17 @@ func makeMainPackage(dir string) error {
 		return err
 	}
 	for _, item := range listing {
-		if filepath.Ext(item.Name()) != GoExtension {
+		if !isGoFile(item.Name()) {
 			continue
 		}
 		path := filepath.Join(dir, item.Name())
-		set := token.NewFileSet()
-		file, err := parser.ParseFile(set, path, nil, 0)
+		contents, err := ioutil.ReadFile(path)
 		if err != nil {
 			return err
 		}
-		contents, err := ioutil.ReadFile(path)
+
+		set := token.NewFileSet()
+		file, err := parser.ParseFile(set, path, contents, 0)
 		if err != nil {
 			return err
 		}

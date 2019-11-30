@@ -14,7 +14,8 @@ import (
 
 // Command line arguments.
 var (
-	encKey              string
+	customPadding       string
+	tags                string
 	outputGopath        bool
 	keepTests           bool
 	winHide             bool
@@ -24,7 +25,7 @@ var (
 )
 
 func main() {
-	flag.StringVar(&encKey, "enckey", "", "rename encryption key")
+	flag.StringVar(&customPadding, "padding", "", "use a custom padding for hashing sensitive information (otherwise a random padding will be used)")
 	flag.BoolVar(&outputGopath, "outdir", false, "output a full GOPATH")
 	flag.BoolVar(&keepTests, "keeptests", false, "keep _test.go files")
 	flag.BoolVar(&winHide, "winhide", false, "hide windows GUI")
@@ -32,6 +33,7 @@ func main() {
 	flag.BoolVar(&preservePackageName, "noencrypt", false,
 		"no encrypted package name for go build command (works when main package has CGO code)")
 	flag.BoolVar(&verbose, "verbose", false, "verbose mode")
+	flag.StringVar(&tags, "tags", "", "tags are passed to the go compiler")
 
 	flag.Parse()
 
@@ -43,12 +45,6 @@ func main() {
 
 	pkgName := flag.Args()[0]
 	outPath := flag.Args()[1]
-
-	if encKey == "" {
-		buf := make([]byte, 32)
-		rand.Read(buf)
-		encKey = string(buf)
-	}
 
 	if !obfuscate(pkgName, outPath) {
 		os.Exit(1)
@@ -79,10 +75,17 @@ func obfuscate(pkgName, outPath string) bool {
 		fmt.Fprintln(os.Stderr, "Failed to copy into a new GOPATH:", err)
 		return false
 	}
+	var n NameHasher
+	if customPadding == "" {
+		buf := make([]byte, 32)
+		rand.Read(buf)
+		n = buf
+	} else {
+		n = []byte(customPadding)
+	}
 
-	enc := &Encrypter{Key: encKey}
 	log.Println("Obfuscating package names...")
-	if err := ObfuscatePackageNames(newGopath, enc); err != nil {
+	if err := ObfuscatePackageNames(newGopath, n); err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to obfuscate package names:", err)
 		return false
 	}
@@ -92,7 +95,7 @@ func obfuscate(pkgName, outPath string) bool {
 		return false
 	}
 	log.Println("Obfuscating symbols...")
-	if err := ObfuscateSymbols(newGopath, enc); err != nil {
+	if err := ObfuscateSymbols(newGopath, n); err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to obfuscate symbols:", err)
 		return false
 	}
@@ -105,21 +108,23 @@ func obfuscate(pkgName, outPath string) bool {
 
 	newPkg := pkgName
 	if !preservePackageName {
-		newPkg = encryptComponents(pkgName, enc)
+		newPkg = encryptComponents(pkgName, n)
 	}
 
-	ldflags := `-ldflags=-s -w`
+	ldflags := `-ldflags "-s -w`
 	if winHide {
 		ldflags += " -H=windowsgui"
 	}
 	if !noStaticLink {
-		ldflags += ` -extldflags "-static"`
+		ldflags += ` -extldflags '-static'`
 	}
+	ldflags += `"`
+	tagsFlag := `-tags "` + tags + `"`
 
 	goCache := newGopath + "/cache"
 	os.Mkdir(goCache, 0755)
 
-	arguments := []string{"build", ldflags, "-o", outPath, newPkg}
+	arguments := []string{"build", ldflags, tagsFlag, "-o", outPath, newPkg}
 	environment := []string{
 		"GOROOT=" + ctx.GOROOT,
 		"GOARCH=" + ctx.GOARCH,
@@ -153,10 +158,10 @@ func obfuscate(pkgName, outPath string) bool {
 	return true
 }
 
-func encryptComponents(pkgName string, enc *Encrypter) string {
+func encryptComponents(pkgName string, n NameHasher) string {
 	comps := strings.Split(pkgName, "/")
 	for i, comp := range comps {
-		comps[i] = enc.Encrypt(comp)
+		comps[i] = n.Hash(comp)
 	}
 	return strings.Join(comps, "/")
 }
