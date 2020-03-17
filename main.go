@@ -134,7 +134,7 @@ func obfuscate(pkgName, outPath string) bool {
 		"GOCACHE=" + goCache,
 	}
 
-	cmd := exec.Command("go", arguments...)
+	cmd := exec.Command("/bin/bash", "-c", "go " + strings.Join(arguments, " "))
 	cmd.Env = environment
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
