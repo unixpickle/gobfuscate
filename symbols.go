@@ -295,7 +295,7 @@ func removeDoNotEdit(dir string) error {
 
 		for _, comment := range file.Comments {
 			data := make([]byte, comment.End()-comment.Pos())
-			start := int(comment.Pos())
+			start := int(comment.Pos()) - 1
 			end := start + len(data)
 			data = content[start:end]
 			commentStr := string(data)
