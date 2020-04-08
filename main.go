@@ -111,20 +111,18 @@ func obfuscate(pkgName, outPath string) bool {
 		newPkg = encryptComponents(pkgName, n)
 	}
 
-	ldflags := `-ldflags "-s -w`
+	ldflags := `-s -w`
 	if winHide {
 		ldflags += " -H=windowsgui"
 	}
 	if !noStaticLink {
 		ldflags += ` -extldflags '-static'`
 	}
-	ldflags += `"`
-	tagsFlag := `-tags "` + tags + `"`
 
 	goCache := newGopath + "/cache"
 	os.Mkdir(goCache, 0755)
 
-	arguments := []string{"build", ldflags, tagsFlag, "-o", outPath, newPkg}
+	arguments := []string{"build", "-ldflags", ldflags, "-tags", tags, "-o", outPath, newPkg}
 	environment := []string{
 		"GOROOT=" + ctx.GOROOT,
 		"GOARCH=" + ctx.GOARCH,
