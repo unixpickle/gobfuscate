@@ -122,7 +122,7 @@ func obfuscate(pkgName, outPath string) bool {
 	goCache := newGopath + "/cache"
 	os.Mkdir(goCache, 0755)
 
-	arguments := []string{"build", "-ldflags", ldflags, "-tags", tags, "-o", outPath, newPkg}
+	arguments := []string{"build", "-trimpath", "-ldflags", ldflags, "-tags", tags, "-o", outPath, newPkg}
 	environment := []string{
 		"GOROOT=" + ctx.GOROOT,
 		"GOARCH=" + ctx.GOARCH,
