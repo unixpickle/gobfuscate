@@ -72,7 +72,8 @@ func obfuscate(pkgName, outPath string) bool {
 	log.Println("Copying GOPATH...")
 
 	if err := CopyGopath(pkgName, newGopath, keepTests); err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to copy into a new GOPATH:", err)
+		moreInfo := "\nNote: Setting GO111MODULE env variable to `off` may resolve the above error."
+		fmt.Fprintln(os.Stderr, "Failed to copy into a new GOPATH:", err, moreInfo)
 		return false
 	}
 	var n NameHasher
@@ -124,6 +125,7 @@ func obfuscate(pkgName, outPath string) bool {
 
 	arguments := []string{"build", "-trimpath", "-ldflags", ldflags, "-tags", tags, "-o", outPath, newPkg}
 	environment := []string{
+		"GO111MODULE=off", // needs to be off to make Go search GOPATH
 		"GOROOT=" + ctx.GOROOT,
 		"GOARCH=" + ctx.GOARCH,
 		"GOOS=" + ctx.GOOS,
